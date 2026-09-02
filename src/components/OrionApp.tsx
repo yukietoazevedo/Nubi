@@ -1,10 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Conversation, Message, Attachment, UserProfile } from "../types/chat";
+import { MOCK_RESPONSES } from "../mock/initialData";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  INITIAL_CONVERSATIONS,
-  INITIAL_USER,
-  MOCK_RESPONSES,
-} from "../mock/initialData";
+  buildTitle,
+  createConversation,
+  deleteConversation as deleteConversationApi,
+  deleteConversationMessages,
+  fetchConversations,
+  fetchMessages,
+  fetchProfile,
+  insertMessage,
+  renameConversation as renameConversationApi,
+} from "../lib/nubi-api";
 import { Sidebar } from "./Sidebar";
 import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
@@ -15,166 +25,268 @@ import { AboutModal } from "./AboutModal";
 import { Toaster } from "./ui/sonner";
 import { toast } from "sonner";
 
-const STORAGE_KEY = "nubi_conversations_v2";
+const FALLBACK_USER: UserProfile = {
+  name: "Você",
+  email: "",
+  avatarText: "N",
+  plan: "Conta pessoal",
+};
 
 export const OrionApp: React.FC = () => {
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.error("Error reading localStorage:", err);
-    }
-    return INITIAL_CONVERSATIONS;
-  });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    return conversations.length > 0 ? conversations[0]!.id : null;
-  });
+  const [userId, setUserId] = useState<string | null>(null);
+  const [user, setUser] = useState<UserProfile>(FALLBACK_USER);
 
-  const [user] = useState<UserProfile>(INITIAL_USER);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // resposta da IA / envio
+  const [busyConvId, setBusyConvId] = useState<string | null>(null);
+
   const [selectedModel, setSelectedModel] = useState<string>("Nubi 3.5");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
-
-  // Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
 
+  // Sessão + perfil
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
+      const authUser = data.user;
+      if (!authUser) return;
+      setUserId(authUser.id);
+      const email = authUser.email ?? "";
+      let displayName = email.split("@")[0] ?? "Você";
+      try {
+        const profile = await fetchProfile(authUser.id);
+        if (profile?.display_name) displayName = profile.display_name;
+      } catch (err) {
+        console.error("[nubi] erro ao carregar perfil:", err);
+      }
+      if (cancelled) return;
+      setUser({
+        name: displayName,
+        email,
+        avatarText: (displayName.trim()[0] ?? "N").toUpperCase(),
+        plan: "Conta pessoal",
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Conversas do usuário
+  const loadConversations = useCallback(async () => {
+    setIsLoadingConversations(true);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+      const list = await fetchConversations();
+      setConversations(list);
     } catch (err) {
-      console.error("Error saving to localStorage:", err);
+      console.error("[nubi] erro ao carregar conversas:", err);
+      toast.error("Não foi possível carregar seu histórico");
+    } finally {
+      setIsLoadingConversations(false);
     }
-  }, [conversations]);
+  }, []);
+
+  useEffect(() => {
+    if (userId) void loadConversations();
+  }, [userId, loadConversations]);
+
+  // Mensagens da conversa ativa
+  useEffect(() => {
+    if (!activeId) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingMessages(true);
+    fetchMessages(activeId)
+      .then((rows) => {
+        if (!cancelled) setMessages(rows);
+      })
+      .catch((err) => {
+        console.error("[nubi] erro ao carregar mensagens:", err);
+        if (!cancelled) toast.error("Não foi possível carregar as mensagens");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingMessages(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId]);
 
   const activeConversation = conversations.find((c) => c.id === activeId);
 
+  const bumpConversation = (id: string) => {
+    setConversations((prev) => {
+      const target = prev.find((c) => c.id === id);
+      if (!target) return prev;
+      return [target, ...prev.filter((c) => c.id !== id)];
+    });
+  };
+
   const handleNewConversation = () => {
     setActiveId(null);
+    setMessages([]);
+    setIsMobileOpen(false);
   };
 
   const handleSelectConversation = (id: string) => {
     setActiveId(id);
+    setIsMobileOpen(false);
   };
 
-  const handleRenameConversation = (id: string, newTitle: string) => {
+  const handleRenameConversation = async (id: string, newTitle: string) => {
+    const title = newTitle.trim();
+    if (!title) return;
+    const previous = conversations;
+    setBusyConvId(id);
     setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+      prev.map((c) => (c.id === id ? { ...c, title } : c)),
     );
-    toast.success("Conversa renomeada");
+    try {
+      await renameConversationApi(id, title);
+      toast.success("Conversa renomeada");
+    } catch (err) {
+      console.error("[nubi] erro ao renomear conversa:", err);
+      setConversations(previous);
+      toast.error("Não foi possível renomear a conversa");
+    } finally {
+      setBusyConvId(null);
+    }
   };
 
-  const handleDeleteConversation = (id: string) => {
-    setConversations((prev) => {
-      const filtered = prev.filter((c) => c.id !== id);
+  const handleDeleteConversation = async (id: string) => {
+    setBusyConvId(id);
+    try {
+      await deleteConversationApi(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeId === id) {
-        setActiveId(filtered.length > 0 ? filtered[0]!.id : null);
+        setActiveId(null);
+        setMessages([]);
       }
-      return filtered;
-    });
-    toast.success("Conversa excluída");
+      toast.success("Conversa excluída");
+    } catch (err) {
+      console.error("[nubi] erro ao excluir conversa:", err);
+      toast.error("Não foi possível excluir a conversa");
+    } finally {
+      setBusyConvId(null);
+    }
   };
 
-  const handleResetData = () => {
-    setConversations(INITIAL_CONVERSATIONS);
-    setActiveId(INITIAL_CONVERSATIONS[0]!.id);
-    localStorage.removeItem(STORAGE_KEY);
-    toast.success("Dados restaurados");
+  const handleSignOut = async () => {
+    try {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("[nubi] erro ao sair:", err);
+    }
+    navigate({ to: "/auth", replace: true });
   };
 
-  const handleClearCurrentChat = () => {
+  const handleClearCurrentChat = async () => {
     if (!activeId) return;
-    setConversations((prev) =>
-      prev.map((c) => (c.id === activeId ? { ...c, messages: [] } : c))
-    );
-    toast.success("Chat limpo");
+    const previous = messages;
+    setMessages([]);
+    try {
+      await deleteConversationMessages(activeId);
+      toast.success("Chat limpo");
+    } catch (err) {
+      console.error("[nubi] erro ao limpar conversa:", err);
+      setMessages(previous);
+      toast.error("Não foi possível limpar a conversa");
+    }
   };
 
-  const triggerAiResponse = (targetConvId: string) => {
+  const triggerAiResponse = async (targetConvId: string) => {
+    if (!userId) return;
     setIsLoading(true);
-
-    setTimeout(() => {
-      const randomResponse =
-        MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]!;
-
-      const aiMessage: Message = {
-        id: "msg-" + Date.now(),
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    const reply =
+      MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]!;
+    try {
+      const saved = await insertMessage({
+        conversationId: targetConvId,
+        userId,
         role: "assistant",
-        content: randomResponse,
-        createdAt: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === targetConvId
-            ? { ...c, messages: [...c.messages, aiMessage] }
-            : c
-        )
+        content: reply,
+      });
+      setMessages((prev) =>
+        targetConvId === activeIdRef.current ? [...prev, saved] : prev,
       );
-
+      bumpConversation(targetConvId);
+    } catch (err) {
+      console.error("[nubi] erro ao salvar resposta:", err);
+      toast.error("Não foi possível salvar a resposta");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
-  const handleSendMessage = (text: string, attachments?: Attachment[]) => {
-    const timeNow = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  // Mantém o id ativo acessível dentro de callbacks assíncronos
+  const activeIdRef = React.useRef<string | null>(activeId);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
-    const userMsg: Message = {
-      id: "msg-" + Date.now(),
-      role: "user",
-      content: text || (attachments?.length ? "Anexo enviado" : ""),
-      createdAt: timeNow,
-      attachments,
-    };
+  const handleSendMessage = async (text: string, attachments?: Attachment[]) => {
+    if (!userId || isLoading) return;
+    const content = text.trim() || (attachments?.length ? "Anexo enviado" : "");
+    if (!content) return;
 
-    if (activeId && activeConversation) {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === activeId ? { ...c, messages: [...c.messages, userMsg] } : c
-        )
-      );
-      triggerAiResponse(activeId);
-    } else {
-      const rawTitle = text || attachments?.[0]?.name || "Nova conversa";
-      const title = rawTitle.length > 28 ? rawTitle.slice(0, 28) + "..." : rawTitle;
-      const newId = "conv-" + Date.now();
+    let conversationId = activeId;
 
-      const newConv: Conversation = {
-        id: newId,
-        title,
-        createdAt: "Hoje, " + timeNow,
-        model: selectedModel,
-        messages: [userMsg],
-      };
+    try {
+      if (!conversationId) {
+        setIsCreating(true);
+        const conv = await createConversation(userId, buildTitle(content));
+        conversationId = conv.id;
+        setConversations((prev) => [conv, ...prev]);
+        setActiveId(conv.id);
+        activeIdRef.current = conv.id;
+        setMessages([]);
+        setIsCreating(false);
+      }
 
-      setConversations((prev) => [newConv, ...prev]);
-      setActiveId(newId);
-      triggerAiResponse(newId);
+      const saved = await insertMessage({
+        conversationId,
+        userId,
+        role: "user",
+        content,
+      });
+      setMessages((prev) => [...prev, saved]);
+      bumpConversation(conversationId);
+      void triggerAiResponse(conversationId);
+    } catch (err) {
+      console.error("[nubi] erro ao enviar mensagem:", err);
+      setIsCreating(false);
+      toast.error("Não foi possível enviar a mensagem");
     }
   };
 
   const handleSelectPrompt = (promptText: string) => {
-    handleSendMessage(promptText);
+    void handleSendMessage(promptText);
   };
 
   const handleRegenerateResponse = () => {
-    if (!activeId || !activeConversation || activeConversation.messages.length === 0)
-      return;
-    triggerAiResponse(activeId);
+    if (!activeId || messages.length === 0) return;
+    void triggerAiResponse(activeId);
   };
+
+  const showEmptyState =
+    !activeId || (!isLoadingMessages && messages.length === 0);
 
   return (
     <div className="flex h-screen w-screen bg-[#050B14] text-slate-100 overflow-hidden font-sans antialiased">
@@ -190,12 +302,14 @@ export const OrionApp: React.FC = () => {
       <Sidebar
         conversations={conversations}
         activeId={activeId}
+        isLoading={isLoadingConversations}
+        busyId={busyConvId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onRenameConversation={handleRenameConversation}
         onDeleteConversation={handleDeleteConversation}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onResetData={handleResetData}
+        onSignOut={handleSignOut}
         user={user}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
@@ -209,15 +323,19 @@ export const OrionApp: React.FC = () => {
           onClearChat={handleClearCurrentChat}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenAbout={() => setIsAboutOpen(true)}
-          hasMessages={!!activeConversation && activeConversation.messages.length > 0}
+          hasMessages={messages.length > 0}
         />
 
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          {!activeConversation || activeConversation.messages.length === 0 ? (
+          {isLoadingMessages ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-slate-600">
+              Carregando mensagens...
+            </div>
+          ) : showEmptyState && !isLoading ? (
             <ChatEmptyState onSelectPrompt={handleSelectPrompt} />
           ) : (
             <MessageList
-              messages={activeConversation.messages}
+              messages={messages}
               isLoading={isLoading}
               onRegenerate={handleRegenerateResponse}
             />
@@ -226,7 +344,7 @@ export const OrionApp: React.FC = () => {
 
         <ChatInput
           onSendMessage={handleSendMessage}
-          isLoading={isLoading}
+          isLoading={isLoading || isCreating}
           selectedModel={selectedModel}
           onSelectModel={setSelectedModel}
         />
@@ -237,10 +355,7 @@ export const OrionApp: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
       />
 
-      <AboutModal
-        isOpen={isAboutOpen}
-        onClose={() => setIsAboutOpen(false)}
-      />
+      <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
     </div>
   );
 };
