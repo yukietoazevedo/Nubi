@@ -53,7 +53,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       { id: Date.now().toString(), name: "documento.pdf", size: "1.2 MB", type: "file" },
       { id: Date.now().toString() + "2", name: "imagem.png", size: "850 KB", type: "image" },
     ];
-    const newAtt = sampleFiles[attachments.length % 2];
+    const newAtt = sampleFiles[attachments.length % 2]!;
     setAttachments((prev) => [...prev, newAtt]);
     toast.success(`Anexado: ${newAtt.name}`);
   };
