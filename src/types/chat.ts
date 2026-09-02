@@ -12,7 +12,7 @@ export interface Message {
   role: MessageRole;
   content: string;
   createdAt: string;
-  attachments?: Attachment[];
+  attachments?: Attachment[] | undefined;
 }
 
 export interface Conversation {
