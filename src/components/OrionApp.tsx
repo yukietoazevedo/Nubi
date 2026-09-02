@@ -34,7 +34,7 @@ export const OrionApp: React.FC = () => {
   });
 
   const [activeId, setActiveId] = useState<string | null>(() => {
-    return conversations.length > 0 ? conversations[0].id : null;
+    return conversations.length > 0 ? conversations[0]!.id : null;
   });
 
   const [user] = useState<UserProfile>(INITIAL_USER);
@@ -75,7 +75,7 @@ export const OrionApp: React.FC = () => {
     setConversations((prev) => {
       const filtered = prev.filter((c) => c.id !== id);
       if (activeId === id) {
-        setActiveId(filtered.length > 0 ? filtered[0].id : null);
+        setActiveId(filtered.length > 0 ? filtered[0]!.id : null);
       }
       return filtered;
     });
@@ -84,7 +84,7 @@ export const OrionApp: React.FC = () => {
 
   const handleResetData = () => {
     setConversations(INITIAL_CONVERSATIONS);
-    setActiveId(INITIAL_CONVERSATIONS[0].id);
+    setActiveId(INITIAL_CONVERSATIONS[0]!.id);
     localStorage.removeItem(STORAGE_KEY);
     toast.success("Dados restaurados");
   };
@@ -102,7 +102,7 @@ export const OrionApp: React.FC = () => {
 
     setTimeout(() => {
       const randomResponse =
-        MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+        MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]!;
 
       const aiMessage: Message = {
         id: "msg-" + Date.now(),

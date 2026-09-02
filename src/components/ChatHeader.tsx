@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 
 interface ChatHeaderProps {
-  conversationTitle?: string;
+  conversationTitle?: string | undefined;
   modelName?: string;
   onOpenMobileSidebar: () => void;
   onClearChat?: () => void;

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 interface MessageBubbleProps {
   message: Message;
-  onRegenerate?: () => void;
+  onRegenerate?: (() => void) | undefined;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
