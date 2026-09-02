@@ -14,7 +14,9 @@ interface SidebarProps {
   onRenameConversation: (id: string, newTitle: string) => void;
   onDeleteConversation: (id: string) => void;
   onOpenSettings: () => void;
-  onResetData: () => void;
+  onSignOut: () => void;
+  isLoading?: boolean;
+  busyId?: string | null;
   user: UserProfile;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -28,7 +30,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRenameConversation,
   onDeleteConversation,
   onOpenSettings,
-  onResetData,
+  onSignOut,
+  isLoading = false,
+  busyId = null,
   user,
   isMobileOpen = false,
   onCloseMobile,
@@ -108,7 +112,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Conversas
           </div>
 
-          {conversations.length === 0 ? (
+          {isLoading ? (
+            <div className="py-6 text-center px-4">
+              <p className="text-xs text-slate-600">Carregando conversas...</p>
+            </div>
+          ) : conversations.length === 0 ? (
             <div className="py-6 text-center px-4">
               <p className="text-xs text-slate-500">Nenhuma conversa</p>
             </div>
@@ -125,6 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className={`
                     group relative flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer text-xs
                     transition-colors duration-150
+                    ${busyId === conv.id ? "opacity-50 pointer-events-none" : ""}
                     ${
                       isActive
                         ? "bg-[#0F1E36] text-white font-medium"
@@ -151,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <UserMenu
             user={user}
             onOpenSettings={onOpenSettings}
-            onResetData={onResetData}
+            onSignOut={onSignOut}
           />
         </div>
       </aside>

@@ -7,18 +7,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Settings, RefreshCw, MoreHorizontal } from "lucide-react";
+import { Settings, LogOut, MoreHorizontal } from "lucide-react";
 
 interface UserMenuProps {
   user: UserProfile;
   onOpenSettings: () => void;
-  onResetData: () => void;
+  onSignOut: () => void;
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({
   user,
   onOpenSettings,
-  onResetData,
+  onSignOut,
 }) => {
   return (
     <DropdownMenu>
@@ -64,11 +64,11 @@ export const UserMenu: React.FC<UserMenuProps> = ({
         </DropdownMenuItem>
 
         <DropdownMenuItem
-          onClick={onResetData}
+          onClick={onSignOut}
           className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-[#0F1E36] rounded cursor-pointer"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-          <span>Restaurar dados demo</span>
+          <LogOut className="w-3.5 h-3.5 text-slate-400" />
+          <span>Sair</span>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator className="bg-[#0F1C30] my-1" />
