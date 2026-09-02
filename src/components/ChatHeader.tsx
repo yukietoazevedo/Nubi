@@ -13,7 +13,6 @@ import {
   Trash2,
   Settings,
   Info,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,7 +28,7 @@ interface ChatHeaderProps {
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   conversationTitle,
-  modelName = "Orion 3.5 Turbo",
+  modelName = "Nubi 3.5",
   onOpenMobileSidebar,
   onClearChat,
   onOpenSettings,
@@ -37,96 +36,82 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   hasMessages = false,
 }) => {
   const handleExport = () => {
-    toast.success("Link da conversa copiado para a área de transferência!");
+    toast.success("Link da conversa copiado!");
   };
 
   return (
-    <header className="h-14 min-h-[56px] px-4 bg-[#07111F]/80 backdrop-blur-md border-b border-[#132744] flex items-center justify-between z-30 select-none">
+    <header className="h-12 min-h-[48px] px-4 bg-[#050B14] border-b border-[#0D1829] flex items-center justify-between z-30 select-none">
       <div className="flex items-center gap-3">
-        {/* Mobile Sidebar Toggle Button */}
         <button
           onClick={onOpenMobileSidebar}
-          aria-label="Abrir histórico de conversas"
-          className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-[#0F223D] transition-colors"
+          aria-label="Abrir histórico"
+          className="lg:hidden p-1 text-slate-400 hover:text-slate-200 transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* AI Branding & Title */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-white tracking-tight flex items-center gap-1.5">
-              ORION
-            </span>
-            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline-block">
-              • {conversationTitle ? conversationTitle : modelName}
-            </span>
-          </div>
-
-          {/* Status Indicator */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-[11px] font-medium text-emerald-400">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="hidden xs:inline">IA pronta para ajudar</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-slate-100 tracking-tight">
+            Nubi
+          </span>
+          <span className="text-xs text-slate-500 font-normal">
+            {conversationTitle ? `• ${conversationTitle}` : `• ${modelName}`}
+          </span>
         </div>
       </div>
 
-      {/* Discrete Top Right Options Menu */}
       <div className="flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Opções do chat"
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-[#0F223D] transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-[#0A1424] transition-colors focus:outline-none"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-48 bg-[#0D1C33] border-[#182F52] text-slate-200 p-1.5 shadow-2xl rounded-xl"
+            className="w-44 bg-[#0A1424] border-[#0F1C30] text-slate-200 p-1 shadow-lg rounded-lg"
           >
             {hasMessages && (
               <>
                 <DropdownMenuItem
                   onClick={handleExport}
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-[#142948] rounded-lg cursor-pointer transition-colors"
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-[#0F1E36] rounded cursor-pointer"
                 >
-                  <Share2 className="w-4 h-4 text-slate-400" />
-                  <span>Compartilhar conversa</span>
+                  <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Compartilhar</span>
                 </DropdownMenuItem>
 
                 {onClearChat && (
                   <DropdownMenuItem
                     onClick={onClearChat}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded-lg cursor-pointer transition-colors"
+                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded cursor-pointer"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Limpar mensagens</span>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Limpar chat</span>
                   </DropdownMenuItem>
                 )}
 
-                <DropdownMenuSeparator className="bg-[#142948] my-1" />
+                <DropdownMenuSeparator className="bg-[#0F1C30] my-1" />
               </>
             )}
 
             <DropdownMenuItem
               onClick={onOpenSettings}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-[#142948] rounded-lg cursor-pointer transition-colors"
+              className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-[#0F1E36] rounded cursor-pointer"
             >
-              <Settings className="w-4 h-4 text-slate-400" />
+              <Settings className="w-3.5 h-3.5 text-slate-400" />
               <span>Configurações</span>
             </DropdownMenuItem>
 
             <DropdownMenuItem
               onClick={onOpenAbout}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-[#142948] rounded-lg cursor-pointer transition-colors"
+              className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-[#0F1E36] rounded cursor-pointer"
             >
-              <Info className="w-4 h-4 text-slate-400" />
-              <span>Sobre o Orion</span>
+              <Info className="w-3.5 h-3.5 text-slate-400" />
+              <span>Sobre a Nubi</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -15,7 +15,7 @@ import { AboutModal } from "./AboutModal";
 import { Toaster } from "./ui/sonner";
 import { toast } from "sonner";
 
-const STORAGE_KEY = "orion_conversations_v1";
+const STORAGE_KEY = "nubi_conversations_v2";
 
 export const OrionApp: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>(() => {
@@ -38,7 +38,7 @@ export const OrionApp: React.FC = () => {
   });
 
   const [user] = useState<UserProfile>(INITIAL_USER);
-  const [selectedModel, setSelectedModel] = useState<string>("Orion 3.5 Turbo");
+  const [selectedModel, setSelectedModel] = useState<string>("Nubi 3.5");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
 
@@ -46,7 +46,6 @@ export const OrionApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
 
-  // Save to localStorage whenever conversations update
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
@@ -57,26 +56,21 @@ export const OrionApp: React.FC = () => {
 
   const activeConversation = conversations.find((c) => c.id === activeId);
 
-  // Handler: New Conversation
   const handleNewConversation = () => {
     setActiveId(null);
-    toast.info("Nova conversa iniciada");
   };
 
-  // Handler: Select Conversation
   const handleSelectConversation = (id: string) => {
     setActiveId(id);
   };
 
-  // Handler: Rename Conversation
   const handleRenameConversation = (id: string, newTitle: string) => {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
     );
-    toast.success("Conversa renomeada!");
+    toast.success("Conversa renomeada");
   };
 
-  // Handler: Delete Conversation
   const handleDeleteConversation = (id: string) => {
     setConversations((prev) => {
       const filtered = prev.filter((c) => c.id !== id);
@@ -88,29 +82,25 @@ export const OrionApp: React.FC = () => {
     toast.success("Conversa excluída");
   };
 
-  // Handler: Reset Data
   const handleResetData = () => {
     setConversations(INITIAL_CONVERSATIONS);
     setActiveId(INITIAL_CONVERSATIONS[0].id);
     localStorage.removeItem(STORAGE_KEY);
-    toast.success("Dados de demonstração restaurados com sucesso!");
+    toast.success("Dados restaurados");
   };
 
-  // Handler: Clear current chat messages
   const handleClearCurrentChat = () => {
     if (!activeId) return;
     setConversations((prev) =>
       prev.map((c) => (c.id === activeId ? { ...c, messages: [] } : c))
     );
-    toast.success("Mensagens do chat limpas.");
+    toast.success("Chat limpo");
   };
 
-  // Helper: Trigger simulated AI response
   const triggerAiResponse = (targetConvId: string) => {
     setIsLoading(true);
 
     setTimeout(() => {
-      // Pick random or contextual response
       const randomResponse =
         MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
 
@@ -133,10 +123,9 @@ export const OrionApp: React.FC = () => {
       );
 
       setIsLoading(false);
-    }, 1200);
+    }, 1000);
   };
 
-  // Handler: Send Message
   const handleSendMessage = (text: string, attachments?: Attachment[]) => {
     const timeNow = new Date().toLocaleTimeString([], {
       hour: "2-digit",
@@ -146,13 +135,12 @@ export const OrionApp: React.FC = () => {
     const userMsg: Message = {
       id: "msg-" + Date.now(),
       role: "user",
-      content: text || (attachments?.length ? "Encaminho os arquivos anexados para análise." : ""),
+      content: text || (attachments?.length ? "Anexo enviado" : ""),
       createdAt: timeNow,
       attachments,
     };
 
     if (activeId && activeConversation) {
-      // Append to existing active conversation
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeId ? { ...c, messages: [...c.messages, userMsg] } : c
@@ -160,9 +148,8 @@ export const OrionApp: React.FC = () => {
       );
       triggerAiResponse(activeId);
     } else {
-      // Create new conversation
       const rawTitle = text || attachments?.[0]?.name || "Nova conversa";
-      const title = rawTitle.length > 32 ? rawTitle.slice(0, 32) + "..." : rawTitle;
+      const title = rawTitle.length > 28 ? rawTitle.slice(0, 28) + "..." : rawTitle;
       const newId = "conv-" + Date.now();
 
       const newConv: Conversation = {
@@ -179,12 +166,10 @@ export const OrionApp: React.FC = () => {
     }
   };
 
-  // Handler: Select Prompt from Empty State
   const handleSelectPrompt = (promptText: string) => {
     handleSendMessage(promptText);
   };
 
-  // Handler: Regenerate AI Response
   const handleRegenerateResponse = () => {
     if (!activeId || !activeConversation || activeConversation.messages.length === 0)
       return;
@@ -192,19 +177,16 @@ export const OrionApp: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#07111F] text-slate-100 overflow-hidden font-sans antialiased">
-      {/* Toast Notifications */}
+    <div className="flex h-screen w-screen bg-[#050B14] text-slate-100 overflow-hidden font-sans antialiased">
       <Toaster position="top-right" theme="dark" />
 
-      {/* Backdrop for mobile drawer */}
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+          className="fixed inset-0 bg-black/60 z-30 lg:hidden transition-opacity"
         />
       )}
 
-      {/* Left Sidebar */}
       <Sidebar
         conversations={conversations}
         activeId={activeId}
@@ -219,9 +201,7 @@ export const OrionApp: React.FC = () => {
         onCloseMobile={() => setIsMobileOpen(false)}
       />
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-[#07111F] relative">
-        {/* Header */}
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-[#050B14] relative">
         <ChatHeader
           conversationTitle={activeConversation?.title}
           modelName={selectedModel}
@@ -232,7 +212,6 @@ export const OrionApp: React.FC = () => {
           hasMessages={!!activeConversation && activeConversation.messages.length > 0}
         />
 
-        {/* Chat Content Body */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
           {!activeConversation || activeConversation.messages.length === 0 ? (
             <ChatEmptyState onSelectPrompt={handleSelectPrompt} />
@@ -245,7 +224,6 @@ export const OrionApp: React.FC = () => {
           )}
         </div>
 
-        {/* Footer Composer Input */}
         <ChatInput
           onSendMessage={handleSendMessage}
           isLoading={isLoading}
@@ -254,7 +232,6 @@ export const OrionApp: React.FC = () => {
         />
       </main>
 
-      {/* Modals */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
