@@ -1,0 +1,40 @@
+export type MessageRole = "user" | "assistant";
+
+export interface Attachment {
+  id: string;
+  name: string;
+  size: string;
+  type: "file" | "image";
+}
+
+export interface Message {
+  id: string;
+  role: MessageRole;
+  content: string;
+  createdAt: string;
+  attachments?: Attachment[];
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: string;
+  model?: string;
+  pinned?: boolean;
+}
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  avatarText: string;
+  plan: string;
+}
+
+export interface PromptSuggestion {
+  id: string;
+  title: string;
+  subtitle: string;
+  prompt: string;
+  iconName: "lightbulb" | "compass" | "code" | "pen";
+}
